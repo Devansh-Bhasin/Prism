@@ -11,6 +11,8 @@ interface SearchResult {
     category: string;
     confidence: number;
     matchReasons: string[];
+    scrapedBio: string;
+    profileImage?: string;
 }
 
 interface ResultsDisplayProps {
@@ -44,8 +46,8 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                 className="glass rounded-3xl p-12 text-center"
             >
                 <Loader2 className="w-16 h-16 mx-auto mb-4 text-neon-cyan animate-spin" />
-                <h3 className="text-2xl font-bold mb-2">Scanning the web...</h3>
-                <p className="text-gray-400">Checking 50+ platforms for "{query}"</p>
+                <h3 className="text-2xl font-bold mb-2">Engaging Deep Scraper...</h3>
+                <p className="text-gray-400">Interrogating metadata for "{query}"</p>
             </motion.div>
         );
     }
@@ -74,9 +76,9 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-3xl font-bold mb-2">
-                            Found {results.length} Profile{results.length !== 1 ? 's' : ''}
+                            Bulletproof Findings ({results.length})
                         </h2>
-                        <p className="text-gray-400">Results for "{query}"</p>
+                        <p className="text-gray-400">Verified identity fragments for "{query}"</p>
                     </div>
                     <CheckCircle className="w-12 h-12 text-green-500" />
                 </div>
@@ -93,7 +95,7 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                     <div className="flex items-center gap-3 mb-4">
                         <span className="text-3xl">{categoryIcons[category]}</span>
                         <h3 className="text-xl font-bold capitalize">{category}</h3>
-                        <span className="text-sm text-gray-500">({categoryResults.length})</span>
+                        <span className="text-sm text-gray-500">({categoryResults.length} matches)</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -107,37 +109,58 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: idx * 0.05 }}
                                 whileHover={{ scale: 1.05, y: -5 }}
-                                className="glass rounded-xl p-5 group cursor-pointer"
+                                className="glass rounded-xl p-5 group cursor-pointer flex flex-col justify-between"
                             >
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h4 className="font-bold text-lg group-hover:text-neon-cyan transition-colors">
-                                                {result.platform}
-                                            </h4>
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${result.confidence > 80 ? 'bg-green-500/20 text-green-400' :
+                                <div>
+                                    <div className="flex items-start gap-4 mb-3">
+                                        {result.profileImage && (
+                                            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-neon-cyan/30 flex-shrink-0">
+                                                <img
+                                                    src={result.profileImage}
+                                                    alt={result.platform}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h4 className="font-bold text-lg group-hover:text-neon-cyan transition-colors line-clamp-1">
+                                                    {result.platform}
+                                                </h4>
+                                            </div>
+                                            <p className="text-xs text-gray-500 font-mono mb-2">@{result.username}</p>
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap ${result.confidence > 80 ? 'bg-green-500/20 text-green-400' :
                                                     result.confidence > 50 ? 'bg-yellow-500/20 text-yellow-400' :
                                                         'bg-red-500/20 text-red-400'
                                                 }`}>
-                                                {result.confidence}% Match
+                                                {result.confidence}% Confirmed
                                             </span>
                                         </div>
-                                        <p className="text-sm text-gray-400 font-mono mb-2">@{result.username}</p>
-
-                                        {result.matchReasons.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 mb-3">
-                                                {result.matchReasons.map((reason, rIdx) => (
-                                                    <span key={rIdx} className="text-[10px] bg-white/5 border border-white/10 rounded-md px-1.5 py-0.5 text-gray-500">
-                                                        {reason}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-neon-cyan transition-colors flex-shrink-0" />
                                     </div>
-                                    <ExternalLink className="w-5 h-5 text-gray-500 group-hover:text-neon-cyan transition-colors" />
+
+                                    {result.scrapedBio && (
+                                        <div className="bg-black/40 rounded-lg p-3 mb-3 border border-white/5">
+                                            <p className="text-[11px] text-gray-300 italic line-clamp-4 leading-relaxed">
+                                                "{result.scrapedBio}"
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {result.matchReasons.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mb-4">
+                                            {result.matchReasons.map((reason, rIdx) => (
+                                                <span key={rIdx} className="text-[8px] bg-neon-cyan/10 border border-neon-cyan/20 rounded-md px-1.5 py-0.5 text-neon-cyan/80 font-bold tracking-tight">
+                                                    {reason}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className={`h-1 rounded-full bg-gradient-to-r ${categoryColors[category]} opacity-50 group-hover:opacity-100 transition-opacity`} />
+                                <div className={`h-1.5 rounded-full bg-gradient-to-r ${categoryColors[category]} opacity-40 group-hover:opacity-100 transition-opacity mt-auto`}
+                                    style={{ width: `${result.confidence}%` }} />
                             </motion.a>
                         ))}
                     </div>

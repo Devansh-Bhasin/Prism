@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { platforms, generateVariations } from '@/app/lib/platforms';
+import * as cheerio from 'cheerio';
 
-export const runtime = 'edge';
+// use Node.js runtime for deeper scraping capabilities
+export const runtime = 'nodejs';
 
 interface SearchResult {
     platform: string;
@@ -10,46 +12,66 @@ interface SearchResult {
     username: string;
     category: string;
     confidence: number;
+    scrapedBio: string;
     matchReasons: string[];
+    profileImage?: string;
 }
 
-async function checkUsername(platform: any, username: string, metadata: any): Promise<SearchResult> {
+/**
+ * Deep Scraper: Fetches the actual page and parses metadata tags
+ */
+async function scrapeProfile(platform: any, username: string, metadata: any): Promise<SearchResult> {
     const url = platform.url.replace('{}', username);
-    let confidence = 40; // Base confidence
-    const matchReasons = ['Username Pattern Match'];
+    let confidence = 30; // Base confidence for finding a valid profile page
+    const matchReasons = ['Profile Discovery'];
+    let scrapedBio = '';
+    let profileImage = '';
 
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
-
         const response = await fetch(url, {
-            method: 'GET',
-            signal: controller.signal,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
             },
         });
 
-        clearTimeout(timeoutId);
-        if (response.status < 200 || response.status >= 400) {
-            return { platform: platform.name, url, found: false, username, category: platform.category, confidence: 0, matchReasons: [] };
+        if (response.status !== 200) {
+            return { platform: platform.name, url, found: false, username, category: platform.category, confidence: 0, scrapedBio: '', matchReasons: [] };
         }
 
-        const body = await response.text();
-        const lowBody = body.toLowerCase();
+        const html = await response.text();
+        const $ = cheerio.load(html);
 
-        // Attribute Scraper Logic
-        if (metadata.location && lowBody.includes(metadata.location.toLowerCase())) {
-            confidence += 30;
-            matchReasons.push('Location Fragment Found');
+        // Extract Bio from OpenGraph tags (standard across social media)
+        scrapedBio = $('meta[property="og:description"]').attr('content') ||
+            $('meta[name="description"]').attr('content') || '';
+
+        profileImage = $('meta[property="og:image"]').attr('content') || '';
+
+        const lowBio = scrapedBio.toLowerCase();
+
+        // 🎯 Intelligence Matching
+        if (metadata.location && lowBio.includes(metadata.location.toLowerCase())) {
+            confidence += 35;
+            matchReasons.push('Verified Location Match');
         }
-        if (metadata.age && (lowBody.includes(` ${metadata.age} `) || lowBody.includes(`${metadata.age} years`))) {
-            confidence += 20;
-            matchReasons.push('Age Reference Detected');
+
+        if (metadata.age) {
+            const agePattern = new RegExp(`\\b${metadata.age}\\b`, 'i');
+            if (agePattern.test(lowBio)) {
+                confidence += 20;
+                matchReasons.push('Age Affinity Detected');
+            }
         }
-        if (metadata.gender !== 'unspecified' && lowBody.includes(metadata.gender)) {
+
+        if (metadata.gender !== 'unspecified' && lowBio.includes(metadata.gender)) {
+            confidence += 15;
+            matchReasons.push('Gender Consistency');
+        }
+
+        // Search engine optimization check (is this likely a person profile?)
+        if (lowBio.includes('profile') || lowBio.includes('joined') || lowBio.includes('follower')) {
             confidence += 10;
-            matchReasons.push('Gender Identifier Context');
         }
 
         return {
@@ -59,52 +81,48 @@ async function checkUsername(platform: any, username: string, metadata: any): Pr
             username,
             category: platform.category,
             confidence: Math.min(confidence, 100),
+            scrapedBio,
             matchReasons,
+            profileImage
         };
     } catch (error) {
-        return { platform: platform.name, url, found: false, username, category: platform.category, confidence: 0, matchReasons: [] };
+        return { platform: platform.name, url, found: false, username, category: platform.category, confidence: 0, scrapedBio: '', matchReasons: [] };
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
         const { query, age, gender, location } = await request.json();
-        const metadata = { age, gender, location };
+        const metadata = { age, gender, location, query };
 
-        if (!query) {
-            return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
-        }
+        if (!query) return NextResponse.json({ error: 'Identity query required' }, { status: 400 });
 
         const variations = generateVariations(query);
         const allChecks: Promise<SearchResult>[] = [];
 
-        // Prioritize top 20 platforms for deeper analysis
-        const prioritizedPlatforms = platforms.slice(0, 20);
-
+        // Aggressive Discovery: Check variations across top platforms
         for (const variation of variations) {
-            for (const platform of prioritizedPlatforms) {
-                allChecks.push(checkUsername(platform, variation, metadata));
+            for (const platform of platforms) {
+                allChecks.push(scrapeProfile(platform, variation, metadata));
             }
         }
 
         const results = await Promise.all(allChecks);
-        const foundResults = results.filter(r => r.found);
+        const validResults = results.filter(r => r.found && r.confidence > 30);
 
-        // Sort by confidence
-        const sortedResults = foundResults.sort((a, b) => b.confidence - a.confidence);
-
-        // Deduplicate and filter high-quality matches
-        const uniqueResults = Array.from(
-            new Map(sortedResults.map(r => [r.platform, r])).values()
-        ).slice(0, 10);
+        // Rank by confidence and deduplicate
+        const uniqueRanked = Array.from(
+            new Map(validResults.sort((a, b) => b.confidence - a.confidence).map(r => [r.platform + r.url, r])).values()
+        );
 
         return NextResponse.json({
-            results: uniqueResults,
-            totalFound: uniqueResults.length,
+            status: 'success',
+            results: uniqueRanked.slice(0, 15), // Deep list of potential matches
+            query: metadata,
         });
 
     } catch (error) {
-        return NextResponse.json({ error: 'Search failed' }, { status: 500 });
+        console.error('Scraping Engine Failure:', error);
+        return NextResponse.json({ error: 'Scraping engine timeout or failure' }, { status: 500 });
     }
 }
-

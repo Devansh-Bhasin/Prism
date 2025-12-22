@@ -8,6 +8,9 @@ import ResultsDisplay from './components/ResultsDisplay';
 export default function HomePage() {
   const [searchMode, setSearchMode] = useState<'text' | 'image'>('text');
   const [searchQuery, setSearchQuery] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('unspecified');
+  const [location, setLocation] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
@@ -34,7 +37,12 @@ export default function HomePage() {
         const response = await fetch('/api/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: searchQuery }),
+          body: JSON.stringify({
+            query: searchQuery,
+            age,
+            gender,
+            location
+          }),
         });
 
         const data = await response.json();
@@ -118,8 +126,8 @@ export default function HomePage() {
             <button
               onClick={() => setSearchMode('text')}
               className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all ${searchMode === 'text'
-                  ? 'bg-gradient-to-r from-neon-cyan to-neon-purple text-white shadow-lg shadow-neon-cyan/50'
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                ? 'bg-gradient-to-r from-neon-cyan to-neon-purple text-white shadow-lg shadow-neon-cyan/50'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10'
                 }`}
             >
               <Search className="w-5 h-5 inline mr-2" />
@@ -128,8 +136,8 @@ export default function HomePage() {
             <button
               onClick={() => setSearchMode('image')}
               className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all ${searchMode === 'image'
-                  ? 'bg-gradient-to-r from-neon-cyan to-neon-purple text-white shadow-lg shadow-neon-purple/50'
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                ? 'bg-gradient-to-r from-neon-cyan to-neon-purple text-white shadow-lg shadow-neon-purple/50'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10'
                 }`}
             >
               <Upload className="w-5 h-5 inline mr-2" />
@@ -144,11 +152,48 @@ export default function HomePage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter name or username..."
-                className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-lg focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/50 transition-all"
+                placeholder="Full Name or Username..."
+                className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-lg focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/50 transition-all mb-4"
               />
-              <p className="text-sm text-gray-500">
-                Try: "John Doe", "johndoe123", or any username
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Age</label>
+                  <input
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="e.g. 25"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Gender</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all appearance-none text-gray-300"
+                  >
+                    <option value="unspecified">Unspecified</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Location</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. London, UK"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                  />
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-500 mt-2">
+                Providing more details results in higher accuracy "Bulletproof" matching.
               </p>
             </div>
           ) : (

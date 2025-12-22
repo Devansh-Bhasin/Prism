@@ -9,6 +9,8 @@ interface SearchResult {
     found: boolean;
     username: string;
     category: string;
+    confidence: number;
+    matchReasons: string[];
 }
 
 interface ResultsDisplayProps {
@@ -109,10 +111,28 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                             >
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex-1">
-                                        <h4 className="font-bold text-lg mb-1 group-hover:text-neon-cyan transition-colors">
-                                            {result.platform}
-                                        </h4>
-                                        <p className="text-sm text-gray-400 font-mono">@{result.username}</p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="font-bold text-lg group-hover:text-neon-cyan transition-colors">
+                                                {result.platform}
+                                            </h4>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${result.confidence > 80 ? 'bg-green-500/20 text-green-400' :
+                                                    result.confidence > 50 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                        'bg-red-500/20 text-red-400'
+                                                }`}>
+                                                {result.confidence}% Match
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-400 font-mono mb-2">@{result.username}</p>
+
+                                        {result.matchReasons.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mb-3">
+                                                {result.matchReasons.map((reason, rIdx) => (
+                                                    <span key={rIdx} className="text-[10px] bg-white/5 border border-white/10 rounded-md px-1.5 py-0.5 text-gray-500">
+                                                        {reason}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                     <ExternalLink className="w-5 h-5 text-gray-500 group-hover:text-neon-cyan transition-colors" />
                                 </div>

@@ -13,12 +13,19 @@ export default function HomePage() {
   const [gender, setGender] = useState('unspecified');
   const [location, setLocation] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -38,19 +45,28 @@ export default function HomePage() {
         const response = await fetch('/api/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: searchQuery,
-            age,
-            gender,
-            location
-          }),
+          body: JSON.stringify({ query: searchQuery, age, gender, location }),
+        });
+        const data = await response.json();
+        setResults(data.results || []);
+      } else {
+        // Image Search Implementation
+        if (!imageFile) return;
+
+        // Using form data for binary file upload
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        formData.append('age', age);
+        formData.append('gender', gender);
+        formData.append('location', location);
+
+        const response = await fetch('/api/image-search', {
+          method: 'POST',
+          body: formData,
         });
 
         const data = await response.json();
         setResults(data.results || []);
-      } else {
-        // TODO: Implement image search
-        alert('Image search coming soon! Use text search for now.');
       }
     } catch (error) {
       console.error('Search failed:', error);
@@ -199,13 +215,29 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <label className="block">
-                <div className="border-2 border-dashed border-white/20 rounded-xl p-12 text-center cursor-pointer hover:border-neon-cyan transition-all">
-                  <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-lg text-gray-300 mb-2">
-                    {imageFile ? imageFile.name : 'Click to upload or drag and drop'}
-                  </p>
-                  <p className="text-sm text-gray-500">PNG, JPG up to 10MB</p>
+              <label className="block group">
+                <div className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all h-64 flex flex-col items-center justify-center relative overflow-hidden ${imagePreview ? 'border-neon-cyan/50 bg-neon-cyan/5' : 'border-white/20 hover:border-neon-cyan bg-white/5'
+                  }`}>
+                  {imagePreview ? (
+                    <>
+                      <img src={imagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-40 blur-sm" />
+                      <div className="relative z-10">
+                        <div className="w-24 h-24 mx-auto mb-4 rounded-full border-2 border-neon-cyan overflow-hidden shadow-lg shadow-neon-cyan/20">
+                          <img src={imagePreview} alt="Face Preview" className="w-full h-full object-cover" />
+                        </div>
+                        <p className="text-lg font-bold text-white mb-1">Face Profile Ready</p>
+                        <p className="text-sm text-neon-cyan group-hover:underline">Click to change identity</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400 group-hover:text-neon-cyan transition-colors" />
+                      <p className="text-lg text-gray-300 mb-2">
+                        Click to upload or drag and drop
+                      </p>
+                      <p className="text-sm text-gray-500 font-mono">PNG, JPG (MAX 10MB)</p>
+                    </>
+                  )}
                   <input
                     type="file"
                     accept="image/*"
@@ -214,6 +246,43 @@ export default function HomePage() {
                   />
                 </div>
               </label>
+
+              {/* Metadata for Image Search */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Est. Age</label>
+                  <input
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="e.g. 25"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Gender</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all appearance-none text-gray-300"
+                  >
+                    <option value="unspecified">Unspecified</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Home Base</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. London, UK"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                  />
+                </div>
+              </div>
             </div>
           )}
 

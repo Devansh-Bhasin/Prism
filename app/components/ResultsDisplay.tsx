@@ -32,11 +32,31 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="glass rounded-3xl p-12 text-center mt-8"
+                className="glass rounded-3xl p-12 text-center mt-8 relative overflow-hidden"
             >
-                <Loader2 className="w-16 h-16 mx-auto mb-4 text-neon-cyan animate-spin" />
-                <h3 className="text-2xl font-bold mb-2">Engaging Deep Scraper...</h3>
-                <p className="text-gray-400">Interrogating metadata for "{query}"</p>
+                {/* Scanning Beam Animation */}
+                <motion.div
+                    className="absolute inset-0 bg-gradient-to-b from-transparent via-neon-cyan/10 to-transparent h-20 pointer-events-none"
+                    animate={{ top: ['-20%', '120%'] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                />
+
+                <div className="relative z-10">
+                    <Loader2 className="w-16 h-16 mx-auto mb-4 text-neon-cyan animate-spin" />
+                    <h3 className="text-2xl font-bold mb-2 tracking-tight">Identity Reconstruction in Progress...</h3>
+                    <p className="text-gray-400 font-mono text-sm">Interrogating global databases & visual hashes</p>
+
+                    <div className="mt-6 flex justify-center gap-2">
+                        {[1, 2, 3].map(i => (
+                            <motion.div
+                                key={i}
+                                className="w-2 h-2 rounded-full bg-neon-cyan"
+                                animate={{ opacity: [0.2, 1, 0.2] }}
+                                transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                            />
+                        ))}
+                    </div>
+                </div>
             </motion.div>
         );
     }
@@ -133,14 +153,24 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                                                 <h4 className="font-bold text-lg group-hover:text-neon-cyan transition-colors line-clamp-1">
                                                     {result.platform}
                                                 </h4>
+                                                {result.confidence > 90 && (
+                                                    <span className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                                )}
                                             </div>
                                             <p className="text-xs text-gray-500 font-mono mb-2">@{result.username}</p>
-                                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap ${result.confidence > 80 ? 'bg-green-500/20 text-green-400' :
-                                                result.confidence > 50 ? 'bg-yellow-500/20 text-yellow-400' :
-                                                    'bg-red-500/20 text-red-400'
-                                                }`}>
-                                                {result.confidence}% Confirmed
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-tighter ${result.confidence > 80 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                                                        result.confidence > 50 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                                                            'bg-red-500/10 text-red-400 border border-red-500/20'
+                                                    }`}>
+                                                    {result.confidence}% Match
+                                                </span>
+                                                {result.matchReasons.some(r => r.toLowerCase().includes('visual')) && (
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-tighter bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20">
+                                                        Visual
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-neon-cyan transition-colors flex-shrink-0" />
                                     </div>

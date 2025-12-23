@@ -150,12 +150,13 @@ prism/
 - [x] Smart username variations
 - [x] Premium UI with glassmorphism
 
-### Phase 2 (Upcoming)
-- [ ] Reverse image search integration
+### Phase 2 (Completed/In Progress)
+- [x] Reverse image search integration (Visual Reconstruction Alpha)
+- [x] Expanded platform support (32+ platforms)
+- [x] Advanced soft 404 & login wall detection
 - [ ] Search history (local storage)
 - [ ] Export results to CSV/JSON
-- [ ] Confidence scoring
-- [ ] More platforms (50+)
+- [ ] Confidence scoring refinements
 
 ### Phase 3 (Future)
 - [ ] Browser extension

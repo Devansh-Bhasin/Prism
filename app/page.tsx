@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Search, Upload, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ResultsDisplay from './components/ResultsDisplay';
+import { SearchResult } from './lib/platforms';
 
 export default function HomePage() {
   const [searchMode, setSearchMode] = useState<'text' | 'image'>('text');
@@ -13,7 +14,7 @@ export default function HomePage() {
   const [location, setLocation] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -193,7 +194,7 @@ export default function HomePage() {
               </div>
 
               <p className="text-sm text-gray-500 mt-2">
-                Providing more details results in higher accuracy "Bulletproof" matching.
+                Providing more details results in higher accuracy &quot;Bulletproof&quot; matching.
               </p>
             </div>
           ) : (

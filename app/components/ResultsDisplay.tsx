@@ -2,18 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ExternalLink, CheckCircle, Loader2 } from 'lucide-react';
-
-interface SearchResult {
-    platform: string;
-    url: string;
-    found: boolean;
-    username: string;
-    category: string;
-    confidence: number;
-    matchReasons: string[];
-    scrapedBio: string;
-    profileImage?: string;
-}
+import { SearchResult } from '../lib/platforms';
 
 interface ResultsDisplayProps {
     results: SearchResult[];
@@ -43,11 +32,27 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="glass rounded-3xl p-12 text-center"
+                className="glass rounded-3xl p-12 text-center mt-8"
             >
                 <Loader2 className="w-16 h-16 mx-auto mb-4 text-neon-cyan animate-spin" />
                 <h3 className="text-2xl font-bold mb-2">Engaging Deep Scraper...</h3>
                 <p className="text-gray-400">Interrogating metadata for "{query}"</p>
+            </motion.div>
+        );
+    }
+
+    if (results.length === 0 && query) {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="glass rounded-3xl p-12 text-center mt-8 border border-red-500/20"
+            >
+                <div className="text-4xl mb-4">🔍❌</div>
+                <h3 className="text-2xl font-bold mb-2 text-gray-300">No Deep Matches Found</h3>
+                <p className="text-gray-500 max-w-md mx-auto">
+                    We scanned multiple platforms for "{query}" but couldn't find a high-confidence profile. Try adjusting the name or providing more metadata.
+                </p>
             </motion.div>
         );
     }
@@ -131,8 +136,8 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                                             </div>
                                             <p className="text-xs text-gray-500 font-mono mb-2">@{result.username}</p>
                                             <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap ${result.confidence > 80 ? 'bg-green-500/20 text-green-400' :
-                                                    result.confidence > 50 ? 'bg-yellow-500/20 text-yellow-400' :
-                                                        'bg-red-500/20 text-red-400'
+                                                result.confidence > 50 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                    'bg-red-500/20 text-red-400'
                                                 }`}>
                                                 {result.confidence}% Confirmed
                                             </span>
@@ -143,7 +148,7 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                                     {result.scrapedBio && (
                                         <div className="bg-black/40 rounded-lg p-3 mb-3 border border-white/5">
                                             <p className="text-[11px] text-gray-300 italic line-clamp-4 leading-relaxed">
-                                                "{result.scrapedBio}"
+                                                &quot;{result.scrapedBio}&quot;
                                             </p>
                                         </div>
                                     )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ExternalLink, CheckCircle, Loader2 } from 'lucide-react';
+import { ExternalLink, CheckCircle, Loader2, Sparkles } from 'lucide-react';
 import { SearchResult } from '../lib/platforms';
 
 interface ResultsDisplayProps {
@@ -109,6 +109,27 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
                 </div>
             </div>
 
+            {/* Primary High-Confidence Matches */}
+            {results.filter(r => ['Instagram', 'Facebook', 'LinkedIn'].includes(r.platform) && r.confidence > 60).length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-1 rounded-2xl bg-gradient-to-r from-neon-cyan/20 via-primary/20 to-neon-cyan/20 border border-neon-cyan/30"
+                >
+                    <div className="glass bg-black/60 rounded-2xl p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Sparkles className="w-5 h-5 text-neon-cyan animate-pulse" />
+                            <h3 className="text-xl font-bold text-white tracking-tight uppercase">Primary Intelligence Nodes</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {results.filter(r => ['Instagram', 'Facebook', 'LinkedIn'].includes(r.platform) && r.confidence > 60).map((result, idx) => (
+                                <ProfileCard key={`primary-${idx}`} result={result} category="social" idx={idx} />
+                            ))}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
             {/* Results by Category */}
             {Object.entries(grouped).map(([category, categoryResults]) => (
                 <motion.div
@@ -125,82 +146,87 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {categoryResults.map((result, idx) => (
-                            <motion.a
-                                key={`${result.platform}-${idx}`}
-                                href={result.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: idx * 0.05 }}
-                                whileHover={{ scale: 1.05, y: -5 }}
-                                className="glass rounded-xl p-5 group cursor-pointer flex flex-col justify-between"
-                            >
-                                <div>
-                                    <div className="flex items-start gap-4 mb-3">
-                                        {result.profileImage && (
-                                            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-neon-cyan/30 flex-shrink-0">
-                                                <img
-                                                    src={result.profileImage}
-                                                    alt={result.platform}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                />
-                                            </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h4 className="font-bold text-lg group-hover:text-neon-cyan transition-colors line-clamp-1">
-                                                    {result.platform}
-                                                </h4>
-                                                {result.confidence > 90 && (
-                                                    <span className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-gray-500 font-mono mb-2">@{result.username}</p>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-tighter ${result.confidence > 80 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                                                        result.confidence > 50 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
-                                                            'bg-red-500/10 text-red-400 border border-red-500/20'
-                                                    }`}>
-                                                    {result.confidence}% Match
-                                                </span>
-                                                {result.matchReasons.some(r => r.toLowerCase().includes('visual')) && (
-                                                    <span className="text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-tighter bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20">
-                                                        Visual
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-neon-cyan transition-colors flex-shrink-0" />
-                                    </div>
-
-                                    {result.scrapedBio && (
-                                        <div className="bg-black/40 rounded-lg p-3 mb-3 border border-white/5">
-                                            <p className="text-[11px] text-gray-300 italic line-clamp-4 leading-relaxed">
-                                                &quot;{result.scrapedBio}&quot;
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {result.matchReasons.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mb-4">
-                                            {result.matchReasons.map((reason, rIdx) => (
-                                                <span key={rIdx} className="text-[8px] bg-neon-cyan/10 border border-neon-cyan/20 rounded-md px-1.5 py-0.5 text-neon-cyan/80 font-bold tracking-tight">
-                                                    {reason}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className={`h-1.5 rounded-full bg-gradient-to-r ${categoryColors[category]} opacity-40 group-hover:opacity-100 transition-opacity mt-auto`}
-                                    style={{ width: `${result.confidence}%` }} />
-                            </motion.a>
+                            <ProfileCard key={`${result.platform}-${idx}`} result={result} category={category} idx={idx} />
                         ))}
                     </div>
                 </motion.div>
             ))}
         </motion.div>
+    );
+}
+
+function ProfileCard({ result, category, idx = 0 }: { result: SearchResult, category: string, idx?: number }) {
+    return (
+        <motion.a
+            href={result.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: idx * 0.05 }}
+            whileHover={{ scale: 1.05, y: -5 }}
+            className="glass rounded-xl p-5 group cursor-pointer flex flex-col justify-between"
+        >
+            <div>
+                <div className="flex items-start gap-4 mb-3">
+                    {result.profileImage && (
+                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-neon-cyan/30 flex-shrink-0">
+                            <img
+                                src={result.profileImage}
+                                alt={result.platform}
+                                className="w-full h-full object-cover"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
+                        </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-lg group-hover:text-neon-cyan transition-colors line-clamp-1">
+                                {result.platform}
+                            </h4>
+                            {result.confidence > 90 && (
+                                <span className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            )}
+                        </div>
+                        <p className="text-xs text-gray-500 font-mono mb-2">@{result.username}</p>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-tighter ${result.confidence > 80 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                                result.confidence > 50 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                                    'bg-red-500/10 text-red-400 border border-red-500/20'
+                                }`}>
+                                {result.confidence}% Match
+                            </span>
+                            {result.matchReasons.some(r => r.toLowerCase().includes('visual')) && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-tighter bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20">
+                                    Visual
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-neon-cyan transition-colors flex-shrink-0" />
+                </div>
+
+                {result.scrapedBio && (
+                    <div className="bg-black/40 rounded-lg p-3 mb-3 border border-white/5">
+                        <p className="text-[11px] text-gray-300 italic line-clamp-4 leading-relaxed">
+                            &quot;{result.scrapedBio}&quot;
+                        </p>
+                    </div>
+                )}
+
+                {result.matchReasons.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                        {result.matchReasons.map((reason, rIdx) => (
+                            <span key={rIdx} className="text-[8px] bg-neon-cyan/10 border border-neon-cyan/20 rounded-md px-1.5 py-0.5 text-neon-cyan/80 font-bold tracking-tight">
+                                {reason}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className={`h-1.5 rounded-full bg-gradient-to-r ${categoryColors[category] || categoryColors.other} opacity-40 group-hover:opacity-100 transition-opacity mt-auto`}
+                style={{ width: `${result.confidence}%` }} />
+        </motion.a>
     );
 }

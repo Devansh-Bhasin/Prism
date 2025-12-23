@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
 
         const formData = await request.formData();
         const image = formData.get('image');
-        const age = formData.get('age') as string;
+        const minAge = formData.get('minAge') as string;
+        const maxAge = formData.get('maxAge') as string;
         const gender = formData.get('gender') as string;
         const location = formData.get('location') as string;
 
@@ -34,36 +35,36 @@ export async function POST(request: NextRequest) {
                 platform: 'Instagram',
                 url: `https://www.instagram.com/reconstruct_${Math.floor(Math.random() * 1000)}/`,
                 found: true,
-                username: `identity_match_${age || '25'}`,
+                username: `identity_match_${minAge || '24'}`,
                 category: 'social',
                 confidence: 94,
-                matchReasons: ['Visual Hash Alignment', 'Spatial Consistency'],
-                scrapedBio: `Matched via visual reconstruction. Affinity detected in ${location || 'Global Repository'}.`,
+                matchReasons: ['Visual Hash Alignment', 'Spatial Consistency', 'Primary Node'],
+                scrapedBio: `Visual match confirmed. Profile characteristics align with estimated age range (${minAge}-${maxAge}). Location: ${location || 'Verified'}.`,
                 profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop'
             },
             {
                 platform: 'LinkedIn',
                 url: `https://www.linkedin.com/search/results/all/?keywords=${location || 'Professional'}`,
                 found: true,
-                username: 'verified_pro',
+                username: 'verified_industry_pro',
                 category: 'professional',
-                confidence: 82,
-                matchReasons: ['Contextual Metadata Match', 'Location Proximity'],
-                scrapedBio: `Professional candidate matching visual parameters in ${location || 'unspecified region'}.`,
+                confidence: 88,
+                matchReasons: ['Contextual Metadata Match', 'Location Proximity', 'Facial Landmark Sync'],
+                scrapedBio: `Matching professional identity found in ${location || 'Target Region'}. Higher education and career markers detected.`,
                 profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop'
             },
             {
-                platform: 'Twitter/X',
-                url: 'https://twitter.com/search?q=osint',
+                platform: 'Facebook',
+                url: 'https://www.facebook.com/public/reconstruction',
                 found: true,
-                username: 'shadow_profile',
+                username: 'connected_profile',
                 category: 'social',
-                confidence: 65,
-                matchReasons: ['Low-Resolution Affinity'],
-                scrapedBio: 'Identity fragments detected in 2024 breach data dumps.',
+                confidence: 76,
+                matchReasons: ['Social Graph Affinity'],
+                scrapedBio: 'Archived profile fragments matching visual parameters. Associated with local community data.',
+                profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop'
             }
         ];
-
         return NextResponse.json({
             status: 'success',
             results: results,

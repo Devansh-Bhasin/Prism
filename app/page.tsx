@@ -9,7 +9,8 @@ import { SearchResult } from './lib/platforms';
 export default function HomePage() {
   const [searchMode, setSearchMode] = useState<'text' | 'image'>('text');
   const [searchQuery, setSearchQuery] = useState('');
-  const [age, setAge] = useState('');
+  const [minAge, setMinAge] = useState('');
+  const [maxAge, setMaxAge] = useState('');
   const [gender, setGender] = useState('unspecified');
   const [location, setLocation] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -45,7 +46,7 @@ export default function HomePage() {
         const response = await fetch('/api/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: searchQuery, age, gender, location }),
+          body: JSON.stringify({ query: searchQuery, minAge, maxAge, gender, location }),
         });
         const data = await response.json();
         setResults(data.results || []);
@@ -56,7 +57,8 @@ export default function HomePage() {
         // Using form data for binary file upload
         const formData = new FormData();
         formData.append('image', imageFile);
-        formData.append('age', age);
+        formData.append('minAge', minAge);
+        formData.append('maxAge', maxAge);
         formData.append('gender', gender);
         formData.append('location', location);
 
@@ -174,15 +176,24 @@ export default function HomePage() {
               />
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Age</label>
-                  <input
-                    type="number"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder="e.g. 25"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
-                  />
+                <div className="space-y-2 col-span-1 md:col-span-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Age Range</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={minAge}
+                      onChange={(e) => setMinAge(e.target.value)}
+                      placeholder="Min"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                    />
+                    <input
+                      type="number"
+                      value={maxAge}
+                      onChange={(e) => setMaxAge(e.target.value)}
+                      placeholder="Max"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Gender</label>
@@ -250,14 +261,23 @@ export default function HomePage() {
               {/* Metadata for Image Search */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Est. Age</label>
-                  <input
-                    type="number"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder="e.g. 25"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
-                  />
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Age Range</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={minAge}
+                      onChange={(e) => setMinAge(e.target.value)}
+                      placeholder="Min"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                    />
+                    <input
+                      type="number"
+                      value={maxAge}
+                      onChange={(e) => setMaxAge(e.target.value)}
+                      placeholder="Max"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Gender</label>

@@ -6,7 +6,8 @@ import { Platform, SearchResult, platforms, generateVariations } from '@/app/lib
 export const runtime = 'nodejs';
 
 interface SearchMetadata {
-    age?: string;
+    minAge?: string;
+    maxAge?: string;
     gender?: string;
     location?: string;
     query: string;
@@ -96,11 +97,21 @@ async function scrapeProfile(platform: Platform, username: string, metadata: Sea
             matchReasons.push('Verified Location Match');
         }
 
-        if (metadata.age) {
-            const agePattern = new RegExp(`\\b${metadata.age}\\b`, 'i');
-            if (agePattern.test(lowBio) || agePattern.test(lowTitle)) {
-                confidence += 20;
-                matchReasons.push('Age Affinity Detected');
+        if (metadata.minAge || metadata.maxAge) {
+            const min = parseInt(metadata.minAge || '0');
+            const max = parseInt(metadata.maxAge || '100');
+
+            // Look for numbers in bio/title and see if they fall in range
+            const numbers = (lowBio + ' ' + lowTitle).match(/\d+/g);
+            if (numbers) {
+                const foundInRange = numbers.some(n => {
+                    const val = parseInt(n);
+                    return val >= min && val <= max && val > 12; // Basic sanity check for age
+                });
+                if (foundInRange) {
+                    confidence += 25;
+                    matchReasons.push('Age Range Affinity Verified');
+                }
             }
         }
 
@@ -135,31 +146,36 @@ async function scrapeProfile(platform: Platform, username: string, metadata: Sea
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { query, age, gender, location } = body;
-        const metadata: SearchMetadata = { age, gender, location, query };
+        const { query, minAge, maxAge, gender, location } = body;
+        const metadata: SearchMetadata = { minAge, maxAge, gender, location, query };
 
         if (!query) return NextResponse.json({ error: 'Identity query required' }, { status: 400 });
 
         const variations = generateVariations(query);
 
-        // We check the first variation (usually the cleanest one) across all platforms first
-        // to get results faster and avoid hitting rate limits too hard.
+        // Prioritize Instagram, Facebook, LinkedIn
+        const primaryNames = ['Instagram', 'Facebook', 'LinkedIn'];
+        const primaryPlatforms = platforms.filter(p => primaryNames.includes(p.name));
+        const otherPlatforms = platforms.filter(p => !primaryNames.includes(p.name));
+
         const mainVariation = variations[0];
-        const secondaryVariations = variations.slice(1);
 
-        const initialChecks = platforms.map(p => scrapeProfile(p, mainVariation, metadata));
-        const initialResults = await Promise.all(initialChecks);
+        // 1. Critical Check: Primary Platforms
+        const primaryChecks = primaryPlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
+        const primaryResults = await Promise.all(primaryChecks);
 
-        // If we don't have many high-confidence results, check other variations
-        let allResults = [...initialResults];
-        const highConfidenceFound = initialResults.filter(r => r.found && r.confidence > 60).length;
+        // 2. Broad Check: Other Platforms
+        const otherChecks = otherPlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
+        const otherResults = await Promise.all(otherChecks);
 
-        if (highConfidenceFound < 3 && secondaryVariations.length > 0) {
-            // Check secondary variations only on top 10 platforms to save time
-            const topPlatforms = platforms.slice(0, 10);
+        let allResults = [...primaryResults, ...otherResults];
+
+        // 3. Fallback: Secondary Variations (only if primary platforms lacked confidence)
+        if (primaryResults.filter(r => r.found && r.confidence > 70).length === 0) {
             const secondaryChecks: Promise<SearchResult>[] = [];
+            const secondaryVariations = variations.slice(1, 3); // Limit variations for speed
             for (const variation of secondaryVariations) {
-                for (const platform of topPlatforms) {
+                for (const platform of primaryPlatforms) {
                     secondaryChecks.push(scrapeProfile(platform, variation, metadata));
                 }
             }
@@ -173,7 +189,6 @@ export async function POST(request: NextRequest) {
         const uniqueRanked = Array.from(
             new Map(validResults.sort((a, b) => b.confidence - a.confidence).map(r => [r.platform + r.url, r])).values()
         );
-
         return NextResponse.json({
             status: 'success',
             results: uniqueRanked.slice(0, 35),

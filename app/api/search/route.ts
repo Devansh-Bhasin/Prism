@@ -45,16 +45,30 @@ function calculateForensicScore(username: string, query: string, bio: string, ti
     const lowBio = bio.toLowerCase();
     const lowTitle = title.toLowerCase();
     const lowQuery = query.toLowerCase();
+    const cleanQuery = lowQuery.replace(/[^a-z0-9]/g, '');
     const lowUser = username.toLowerCase();
+    const cleanUser = lowUser.replace(/[^a-z0-9]/g, '');
 
     // 1. Handle Correlation (Weight: 40)
     totalWeight += 40;
-    if (lowUser === lowQuery) {
+    if (cleanUser === cleanQuery) {
         rawScore += 40;
         reasons.push('Identity Anchor: Exact Handle Match');
-    } else if (lowUser.includes(lowQuery) || lowQuery.includes(lowUser)) {
-        rawScore += 30;
-        reasons.push('Identity Correlation: Fuzzy Handle Match');
+    } else if (cleanUser.includes(cleanQuery) || cleanQuery.includes(cleanUser)) {
+        rawScore += 35;
+        reasons.push('Identity Correlation: Strong Handle Alignment');
+    } else {
+        // Fallback for smart variations (e.g., dbhasin vs devansh bhasin)
+        const queryTokens = lowQuery.split(/\s+/).filter(t => t.length > 2);
+        const matchToken = queryTokens.some(t => cleanUser.includes(t.replace(/[^a-z0-9]/g, '')));
+        if (matchToken) {
+            rawScore += 25;
+            reasons.push('Identity Correlation: Partial Handle Match');
+        } else {
+            // Baseline for finding a node through smart variation probing
+            rawScore += 10;
+            reasons.push('Discovery Node: Platform Match Found via Smart Probing');
+        }
     }
 
     // 2. Geographic Context (Weight: 25)
@@ -76,7 +90,7 @@ function calculateForensicScore(username: string, query: string, bio: string, ti
     }
 
     // 4. Bio Keyword Affinity (Weight: 15)
-    const profKeys = ['engineer', 'developer', 'creator', 'founder', 'artist', 'writer', 'student'];
+    const profKeys = ['engineer', 'developer', 'creator', 'founder', 'artist', 'writer', 'student', 'designer', 'photography', 'tech'];
     if (profKeys.some(k => lowBio.includes(k))) {
         totalWeight += 15;
         rawScore += 15;
@@ -85,7 +99,7 @@ function calculateForensicScore(username: string, query: string, bio: string, ti
 
     // Normalization: Calculate percentage of available evidence found
     const finalScore = totalWeight > 0 ? (rawScore / totalWeight) * 100 : 0;
-    return { score: Math.round(finalScore), reasons };
+    return { score: Math.max(Math.round(finalScore), 15), reasons };
 }
 
 /**

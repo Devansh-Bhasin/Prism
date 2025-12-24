@@ -1,13 +1,14 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ExternalLink, CheckCircle, Loader2, Sparkles } from 'lucide-react';
+import { ExternalLink, CheckCircle, Loader2, Sparkles, Download, FileJson, FileText, Info } from 'lucide-react';
 import { SearchResult } from '../lib/platforms';
 
 interface ResultsDisplayProps {
     results: SearchResult[];
     isLoading: boolean;
     query: string;
+    metadata?: any;
 }
 
 const categoryColors: Record<string, string> = {
@@ -26,7 +27,29 @@ const categoryIcons: Record<string, string> = {
     other: '🔗',
 };
 
-export default function ResultsDisplay({ results, isLoading, query }: ResultsDisplayProps) {
+export default function ResultsDisplay({ results, isLoading, query, metadata }: ResultsDisplayProps) {
+    const handleExportCSV = () => {
+        const headers = 'Platform,Username,URL,Confidence,Category,MatchReason\n';
+        const rows = results.map(r =>
+            `"${r.platform}","${r.username}","${r.url}",${r.confidence},"${r.category}","${r.matchReasons.join('|')}"`
+        ).join('\n');
+        const blob = new Blob([headers + rows], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `prism-osint-${query || 'search'}.csv`;
+        a.click();
+    };
+
+    const handleExportJSON = () => {
+        const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `prism-osint-${query || 'search'}.json`;
+        a.click();
+    };
+
     if (isLoading) {
         return (
             <motion.div
@@ -96,18 +119,88 @@ export default function ResultsDisplay({ results, isLoading, query }: ResultsDis
             animate={{ opacity: 1, y: 0 }}
             className="mt-8 space-y-6"
         >
-            {/* Summary */}
-            <div className="glass rounded-2xl p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-3xl font-bold mb-2">
-                            Bulletproof Findings ({results.length})
-                        </h2>
-                        <p className="text-gray-400">Verified identity fragments for "{query}"</p>
+            {/* Summary Header */}
+            <div className="glass rounded-2xl p-6 border border-neon-cyan/20">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-green-500/20 rounded-xl">
+                            <CheckCircle className="w-8 h-8 text-green-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-bold tracking-tight">
+                                Intelligence Report
+                            </h2>
+                            <p className="text-gray-400 font-mono text-sm tracking-widest uppercase">
+                                Findings Found: {results.length} Identity Fragments
+                            </p>
+                        </div>
                     </div>
-                    <CheckCircle className="w-12 h-12 text-green-500" />
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleExportCSV}
+                            className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-bold hover:bg-white/10 hover:border-neon-cyan/50 transition-all text-gray-300"
+                        >
+                            <FileText className="w-4 h-4" /> CSV
+                        </button>
+                        <button
+                            onClick={handleExportJSON}
+                            className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-bold hover:bg-white/10 hover:border-neon-purple/50 transition-all text-gray-300"
+                        >
+                            <FileJson className="w-4 h-4" /> JSON
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            {/* Metadata Section */}
+            {metadata && (Object.keys(metadata).length > 0) && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="glass rounded-2xl p-6 border border-neon-purple/30 bg-neon-purple/5"
+                >
+                    <div className="flex items-center gap-2 mb-4">
+                        <Loader2 className="w-5 h-5 text-neon-purple" />
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest">Image Metadata (EXIF)</h3>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {metadata.make && (
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-mono">Device Make</p>
+                                <p className="text-sm text-gray-200">{metadata.make}</p>
+                            </div>
+                        )}
+                        {metadata.model && (
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-mono">Camera Model</p>
+                                <p className="text-sm text-gray-200">{metadata.model}</p>
+                            </div>
+                        )}
+                        {metadata.dateTime && (
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-mono">Captured At</p>
+                                <p className="text-sm text-gray-200">{new Date(metadata.dateTime * 1000).toLocaleString()}</p>
+                            </div>
+                        )}
+                        {metadata.software && (
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-mono">Software</p>
+                                <p className="text-sm text-gray-200">{metadata.software}</p>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Platform Trust Warning */}
+            <div className="bg-neon-cyan/5 border border-neon-cyan/20 rounded-xl p-4 flex gap-3 items-start">
+                <Info className="w-5 h-5 text-neon-cyan shrink-0 mt-0.5" />
+                <p className="text-xs text-gray-400 leading-relaxed">
+                    Confidence scores are calculated using <span className="text-neon-cyan font-bold">Heuristic Behavioral Analysis</span>. A score above 80% indicates a high-probability link, but results should always be verified manually before inclusion in legal or security documentation.
+                </p>
+            </div>
+
 
             {/* Primary High-Confidence Matches */}
             {results.filter(r => ['Instagram', 'Facebook', 'LinkedIn'].includes(r.platform) && r.confidence > 60).length > 0 && (

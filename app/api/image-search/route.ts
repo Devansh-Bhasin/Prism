@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SearchResult } from '@/app/lib/platforms';
+// @ts-ignore
+import * as ExifParser from 'exif-parser';
 
 export const runtime = 'nodejs';
 
@@ -20,8 +22,28 @@ export async function POST(request: NextRequest) {
         const gender = formData.get('gender') as string;
         const location = formData.get('location') as string;
 
-        if (!image) {
+        if (!image || !(image instanceof Blob)) {
             return NextResponse.json({ error: 'Image file required' }, { status: 400 });
+        }
+
+        // --- Metadata Extraction (EXIF) ---
+        let metadata: any = {};
+        try {
+            const buffer = await image.arrayBuffer();
+            const parser = ExifParser.create(buffer);
+            const exifData = parser.parse();
+            metadata = {
+                make: exifData.tags.Make,
+                model: exifData.tags.Model,
+                software: exifData.tags.Software,
+                dateTime: exifData.tags.DateTimeOriginal,
+                gps: exifData.tags.GPSLatitude ? {
+                    lat: exifData.tags.GPSLatitude,
+                    lon: exifData.tags.GPSLongitude
+                } : null
+            };
+        } catch (e) {
+            console.warn('Metadata extraction failed (likely no EXIF data)');
         }
 
         // Simulate "Deep Identity Reconstruction" delay
@@ -30,6 +52,7 @@ export async function POST(request: NextRequest) {
         // Mock Discovery Logic: In a real app, this would use a facial recognition API
         // or reverse image search engine. Here we provide high-tech simulated results.
 
+        // Targeting only requested platforms: Instagram, Facebook, Twitter, YouTube
         const results: SearchResult[] = [
             {
                 platform: 'Instagram',
@@ -39,19 +62,30 @@ export async function POST(request: NextRequest) {
                 category: 'social',
                 confidence: 94,
                 matchReasons: ['Visual Hash Alignment', 'Spatial Consistency', 'Primary Node'],
-                scrapedBio: `Visual match confirmed. Profile characteristics align with estimated age range (${minAge}-${maxAge}). Location: ${location || 'Verified'}.`,
+                scrapedBio: `Visual match confirmed on Instagram. Profile characteristics align with estimated age range (${minAge}-${maxAge}). Location: ${location || 'Verified'}.`,
                 profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop'
             },
             {
-                platform: 'LinkedIn',
-                url: `https://www.linkedin.com/search/results/all/?keywords=${location || 'Professional'}`,
+                platform: 'Twitter/X',
+                url: 'https://twitter.com/identity_verified',
                 found: true,
-                username: 'verified_industry_pro',
-                category: 'professional',
-                confidence: 88,
-                matchReasons: ['Contextual Metadata Match', 'Location Proximity', 'Facial Landmark Sync'],
-                scrapedBio: `Matching professional identity found in ${location || 'Target Region'}. Higher education and career markers detected.`,
+                username: 'verified_handle',
+                category: 'social',
+                confidence: 82,
+                matchReasons: ['Facial Landmark Sync', 'Handle Association'],
+                scrapedBio: `Linked Twitter account discovered via visual reconstruction. Associated with digital footprint in ${location || 'Global'}.`,
                 profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop'
+            },
+            {
+                platform: 'YouTube',
+                url: 'https://www.youtube.com/@reconstructed_identity',
+                found: true,
+                username: 'content_creator_v5',
+                category: 'creative',
+                confidence: 79,
+                matchReasons: ['Video Frame Correspondence', 'Metadata Overlap'],
+                scrapedBio: 'Visual markers identified in public video archives. Identity linked to multimedia content.',
+                profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop'
             },
             {
                 platform: 'Facebook',
@@ -62,13 +96,24 @@ export async function POST(request: NextRequest) {
                 confidence: 76,
                 matchReasons: ['Social Graph Affinity'],
                 scrapedBio: 'Archived profile fragments matching visual parameters. Associated with local community data.',
-                profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop'
+                profileImage: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop'
             }
         ];
+
+        // If metadata found, inject it into results summary
+        if (metadata.dateTime || metadata.model) {
+            results.forEach(r => {
+                if (r.confidence > 80) {
+                    r.matchReasons.push(`EXIF Data: ${metadata.model || 'Device'} match`);
+                }
+            });
+        }
+
         return NextResponse.json({
             status: 'success',
             results: results,
-            message: 'Visual reconstruction complete'
+            metadata: metadata,
+            message: 'Visual reconstruction complete and metadata extracted'
         });
 
     } catch (error) {

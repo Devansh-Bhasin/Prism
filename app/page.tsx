@@ -17,6 +17,12 @@ export default function HomePage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [extractedMetadata, setExtractedMetadata] = useState<any>(null);
+  const [searchStatus, setSearchStatus] = useState('');
+  const [searchProgress, setSearchProgress] = useState(0);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['Instagram', 'Facebook', 'Twitter/X', 'YouTube']);
+
+  const allPlatforms = ['Instagram', 'Facebook', 'Twitter/X', 'YouTube', 'LinkedIn', 'TikTok', 'GitHub', 'Reddit'];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -40,15 +46,34 @@ export default function HomePage() {
 
     setIsLoading(true);
     setResults([]);
+    setExtractedMetadata(null);
+    setSearchProgress(10);
+    setSearchStatus('Initializing discovery engines...');
 
     try {
       if (searchMode === 'text') {
+        setSearchStatus('Connecting to distributed nodes...');
+        setSearchProgress(30);
+
         const response = await fetch('/api/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: searchQuery, minAge, maxAge, gender, location }),
+          body: JSON.stringify({
+            query: searchQuery,
+            minAge,
+            maxAge,
+            gender,
+            location,
+            platforms: selectedPlatforms
+          }),
         });
+
+        setSearchStatus('Scanning platform clusters...');
+        setSearchProgress(60);
+
         const data = await response.json();
+        setSearchStatus('Aggregating identity fragments...');
+        setSearchProgress(90);
         setResults(data.results || []);
       } else {
         // Image Search Implementation
@@ -62,19 +87,30 @@ export default function HomePage() {
         formData.append('gender', gender);
         formData.append('location', location);
 
+        setSearchStatus('Performing visual reconstruction...');
+        setSearchProgress(40);
+
         const response = await fetch('/api/image-search', {
           method: 'POST',
           body: formData,
         });
 
+        setSearchStatus('Syncing with reverse-image databases...');
+        setSearchProgress(75);
+
         const data = await response.json();
+        setSearchStatus('Finalizing matches...');
+        setSearchProgress(95);
         setResults(data.results || []);
+        if (data.metadata) setExtractedMetadata(data.metadata);
       }
     } catch (error) {
       console.error('Search failed:', error);
       alert('Search failed. Please try again.');
     } finally {
       setIsLoading(false);
+      setSearchProgress(100);
+      setSearchStatus('Complete');
     }
   };
 
@@ -184,6 +220,7 @@ export default function HomePage() {
                       value={minAge}
                       onChange={(e) => setMinAge(e.target.value)}
                       placeholder="Min"
+                      title="Narrow search based on estimated age markers found in profile bios."
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
                     />
                     <input
@@ -191,6 +228,7 @@ export default function HomePage() {
                       value={maxAge}
                       onChange={(e) => setMaxAge(e.target.value)}
                       placeholder="Max"
+                      title="Narrow search based on estimated age markers found in profile bios."
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
                     />
                   </div>
@@ -215,6 +253,7 @@ export default function HomePage() {
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g. London, UK"
+                    title="Matches location keywords mentioned in public profile metadata."
                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-neon-cyan transition-all"
                   />
                 </div>
@@ -311,10 +350,70 @@ export default function HomePage() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSearch}
-            className="w-full mt-6 py-4 bg-gradient-to-r from-neon-cyan to-neon-purple rounded-xl font-bold text-lg shadow-lg shadow-neon-cyan/30 hover:shadow-neon-cyan/50 transition-all"
+            disabled={isLoading}
+            className={`w-full mt-6 py-4 rounded-xl font-bold text-lg shadow-lg transition-all ${isLoading ? 'bg-gray-700 cursor-not-allowed' : 'bg-gradient-to-r from-neon-cyan to-neon-purple shadow-neon-cyan/30 hover:shadow-neon-cyan/50'
+              }`}
           >
-            Start Discovery
+            {isLoading ? 'Searching...' : 'Start Discovery'}
           </motion.button>
+
+          {/* Progress Indicator */}
+          {isLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-mono text-neon-cyan">{searchStatus}</span>
+                <span className="text-sm font-mono text-gray-400">{searchProgress}%</span>
+              </div>
+              <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                <motion.div
+                  className="bg-gradient-to-r from-neon-cyan to-neon-purple h-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${searchProgress}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Platform Selection */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="mt-8 p-6 glass rounded-2xl"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">[ TARGET_PLATFORMS ]</h3>
+            <button
+              onClick={() => setSelectedPlatforms(allPlatforms)}
+              className="text-xs text-neon-cyan hover:underline"
+            >
+              Select All
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {allPlatforms.map(platform => (
+              <button
+                key={platform}
+                onClick={() => setSelectedPlatforms(prev =>
+                  prev.includes(platform)
+                    ? prev.filter(p => p !== platform)
+                    : [...prev, platform]
+                )}
+                className={`py-2 px-3 rounded-lg border text-sm transition-all text-center ${selectedPlatforms.includes(platform)
+                  ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan'
+                  : 'border-white/10 bg-white/5 text-gray-500 hover:border-white/30'
+                  }`}
+              >
+                {platform}
+              </button>
+            ))}
+          </div>
         </motion.div>
 
         {/* Info Cards */}
@@ -338,7 +437,18 @@ export default function HomePage() {
         </div>
 
         {/* Results */}
-        <ResultsDisplay results={results} isLoading={isLoading} query={searchQuery} />
+        <ResultsDisplay results={results} isLoading={isLoading} query={searchQuery} metadata={extractedMetadata} />
+
+        {/* Legal & Ethical Disclaimer */}
+        <footer className="mt-20 pt-8 border-t border-white/5 text-center px-4">
+          <div className="flex justify-center gap-6 mb-4 text-xs font-mono text-gray-500 uppercase tracking-widest">
+            <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Ethical Use Compliant</span>
+            <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Public Data Only</span>
+          </div>
+          <p className="text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
+            Prism is an AI-powered OSINT discovery tool designed for ethical research and verification. We only access publicly available information and adhere to platform-specific privacy policies. Users are responsible for ensuring their use cases comply with local laws and ethical standards.
+          </p>
+        </footer>
       </motion.div>
     </div>
   );

@@ -146,41 +146,46 @@ async function scrapeProfile(platform: Platform, username: string, metadata: Sea
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { query, minAge, maxAge, gender, location } = body;
+        const { query, minAge, maxAge, gender, location, platforms: requestedPlatforms } = body;
         const metadata: SearchMetadata = { minAge, maxAge, gender, location, query };
 
         if (!query) return NextResponse.json({ error: 'Identity query required' }, { status: 400 });
 
         const variations = generateVariations(query);
 
-        // Prioritize Instagram, Facebook, LinkedIn
-        const primaryNames = ['Instagram', 'Facebook', 'LinkedIn'];
-        const primaryPlatforms = platforms.filter(p => primaryNames.includes(p.name));
-        const otherPlatforms = platforms.filter(p => !primaryNames.includes(p.name));
+        // Filter platforms based on user selection or defaults
+        const targetPlatforms = requestedPlatforms
+            ? platforms.filter(p => requestedPlatforms.includes(p.name))
+            : platforms;
+
+        // Prioritize Instagram, Facebook, Twitter, YouTube as requested
+        const coreNames = ['Instagram', 'Facebook', 'Twitter/X', 'YouTube'];
+        const corePlatforms = targetPlatforms.filter(p => coreNames.includes(p.name));
+        const extraPlatforms = targetPlatforms.filter(p => !coreNames.includes(p.name));
 
         const mainVariation = variations[0];
 
-        // 1. Critical Check: Primary Platforms
-        const primaryChecks = primaryPlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
-        const primaryResults = await Promise.all(primaryChecks);
+        // 1. Critical Check: Core Platforms (The ones user specifically asked for)
+        const coreChecks = corePlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
+        const coreResults = await Promise.all(coreChecks);
 
-        // 2. Broad Check: Other Platforms
-        const otherChecks = otherPlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
-        const otherResults = await Promise.all(otherChecks);
+        // 2. Broad Check: Extra Platforms
+        const extraChecks = extraPlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
+        const extraResults = await Promise.all(extraChecks);
 
-        let allResults = [...primaryResults, ...otherResults];
+        let allResults = [...coreResults, ...extraResults];
 
-        // 3. Fallback: Secondary Variations (only if primary platforms lacked confidence)
-        if (primaryResults.filter(r => r.found && r.confidence > 70).length === 0) {
+        // 3. Fallback: Secondary Variations (if core results are weak)
+        if (coreResults.filter(r => r.found && r.confidence > 70).length === 0) {
             const secondaryChecks: Promise<SearchResult>[] = [];
-            const secondaryVariations = variations.slice(1, 3); // Limit variations for speed
+            const secondaryVariations = variations.slice(1, 3);
             for (const variation of secondaryVariations) {
-                for (const platform of primaryPlatforms) {
+                for (const platform of corePlatforms) {
                     secondaryChecks.push(scrapeProfile(platform, variation, metadata));
                 }
             }
-            const extraResults = await Promise.all(secondaryChecks);
-            allResults = [...allResults, ...extraResults];
+            const extraRes = await Promise.all(secondaryChecks);
+            allResults = [...allResults, ...extraRes];
         }
 
         const validResults = allResults.filter(r => r.found && r.confidence >= 30);

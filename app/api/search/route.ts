@@ -14,6 +14,49 @@ interface SearchMetadata {
 }
 
 /**
+ * OSINT Aggregator: Uses search engine 'site:' dorks to find real profiles
+ */
+async function searchDiscovery(query: string, platformName: string, platformBaseUrl: string): Promise<string[]> {
+    const domain = new URL(platformBaseUrl).hostname;
+    const searchQuery = `site:${domain} "${query}"`;
+    const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
+
+    try {
+        const response = await fetch(searchUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html',
+            },
+            signal: AbortSignal.timeout(8000),
+        });
+
+        if (!response.ok) return [];
+
+        const html = await response.text();
+        const $ = cheerio.load(html);
+        const links: string[] = [];
+
+        // DuckDuckGo HTML results are usually in .result__url or a.result__a
+        $('a.result__a').each((_, el) => {
+            const href = $(el).attr('href');
+            if (href && href.includes(domain) && !href.includes('duckduckgo.com')) {
+                // Extract actual URL (DuckDuckGo often wraps links)
+                const match = href.match(/uddg=([^&]+)/);
+                const actualUrl = match ? decodeURIComponent(match[1]) : href;
+                if (!actualUrl.includes('/search') && !actualUrl.includes('/tags')) {
+                    links.push(actualUrl);
+                }
+            }
+        });
+
+        return [...new Set(links)].slice(0, 2); // Return top 2 unique profile matches
+    } catch (e) {
+        console.error(`Discovery failed for ${platformName}:`, e);
+        return [];
+    }
+}
+
+/**
  * Deep Scraper: Fetches the actual page and parses metadata tags
  */
 async function scrapeProfile(platform: Platform, username: string, metadata: SearchMetadata): Promise<SearchResult> {
@@ -165,28 +208,40 @@ export async function POST(request: NextRequest) {
 
         const mainVariation = variations[0];
 
-        // 1. Critical Check: Core Platforms (The ones user specifically asked for)
-        const coreChecks = corePlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
-        const coreResults = await Promise.all(coreChecks);
+        // --- PHASE 1: Discovery (The Aggregator) ---
+        // Instead of guessing, we search the platform for the user's name
+        const discoveryChecks = corePlatforms.map(async (p) => {
+            const foundUrls = await searchDiscovery(query, p.name, p.url);
+            return { platform: p, urls: foundUrls };
+        });
 
-        // 2. Broad Check: Extra Platforms
+        const discoveryResults = await discoveryChecks; // This is a list of {platform, urls[]}
+
+        // --- PHASE 2: Deep Scrape ---
+        // Now we scrape the ACTUAL URLs we found
+        const scrapeTasks: Promise<SearchResult>[] = [];
+
+        for (const dr of await Promise.all(discoveryResults)) {
+            if (dr.urls.length > 0) {
+                // If we found real URLs, scrape them
+                dr.urls.forEach(url => {
+                    // Extract username from URL for the data object
+                    const username = url.split('/').filter(Boolean).pop() || query;
+                    scrapeTasks.push(scrapeProfile(dr.platform, username, metadata));
+                });
+            } else {
+                // Fallback to guessing if discovery returned nothing (unlikely for big names)
+                scrapeTasks.push(scrapeProfile(dr.platform, mainVariation, metadata));
+            }
+        }
+
+        const coreResults = await Promise.all(scrapeTasks);
+
+        // 2. Broad Check: Extra Platforms (Quick guess for speed on less important sites)
         const extraChecks = extraPlatforms.map(p => scrapeProfile(p, mainVariation, metadata));
         const extraResults = await Promise.all(extraChecks);
 
         let allResults = [...coreResults, ...extraResults];
-
-        // 3. Fallback: Secondary Variations (if core results are weak)
-        if (coreResults.filter(r => r.found && r.confidence > 70).length === 0) {
-            const secondaryChecks: Promise<SearchResult>[] = [];
-            const secondaryVariations = variations.slice(1, 3);
-            for (const variation of secondaryVariations) {
-                for (const platform of corePlatforms) {
-                    secondaryChecks.push(scrapeProfile(platform, variation, metadata));
-                }
-            }
-            const extraRes = await Promise.all(secondaryChecks);
-            allResults = [...allResults, ...extraRes];
-        }
 
         const validResults = allResults.filter(r => r.found && r.confidence >= 30);
 

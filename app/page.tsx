@@ -16,8 +16,9 @@ export default function HomePage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [extractedMetadata, setExtractedMetadata] = useState<any>(null);
+  const [results, setResults] = useState<any>([]); // Supports tiered or flat
+  const [verificationLevel, setVerificationLevel] = useState<string>('');
+  const [forensicReport, setForensicReport] = useState<any>(null);
   const [searchStatus, setSearchStatus] = useState('');
   const [searchProgress, setSearchProgress] = useState(0);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['Instagram', 'Facebook', 'Twitter/X', 'YouTube']);
@@ -46,48 +47,34 @@ export default function HomePage() {
 
     setIsLoading(true);
     setResults([]);
-    setExtractedMetadata(null);
+    setForensicReport(null);
+    setVerificationLevel('');
     setSearchProgress(10);
     setSearchStatus('Initializing discovery engines...');
 
     try {
       if (searchMode === 'text') {
-        setSearchStatus('Connecting to distributed nodes...');
-        setSearchProgress(30);
-
         const response = await fetch('/api/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: searchQuery,
-            minAge,
-            maxAge,
-            gender,
             location,
             platforms: selectedPlatforms
           }),
         });
 
-        setSearchStatus('Scanning platform clusters...');
-        setSearchProgress(60);
-
         const data = await response.json();
-        setSearchStatus('Aggregating identity fragments...');
-        setSearchProgress(90);
         setResults(data.results || []);
+        setVerificationLevel(data.results?.length > 0 ? 'Probable' : 'Inconclusive');
       } else {
-        // Image Search Implementation
         if (!imageFile) return;
 
-        // Using form data for binary file upload
         const formData = new FormData();
         formData.append('image', imageFile);
-        formData.append('minAge', minAge);
-        formData.append('maxAge', maxAge);
-        formData.append('gender', gender);
         formData.append('location', location);
 
-        setSearchStatus('Performing visual reconstruction...');
+        setSearchStatus('Performing forensic reconstruction...');
         setSearchProgress(40);
 
         const response = await fetch('/api/image-search', {
@@ -95,18 +82,13 @@ export default function HomePage() {
           body: formData,
         });
 
-        setSearchStatus('Syncing with reverse-image databases...');
-        setSearchProgress(75);
-
         const data = await response.json();
-        setSearchStatus('Finalizing matches...');
-        setSearchProgress(95);
-        setResults(data.results || []);
-        if (data.metadata) setExtractedMetadata(data.metadata);
+        setResults(data.results || { verified: [], visual: [] });
+        setVerificationLevel(data.verificationLevel || 'Inconclusive');
+        setForensicReport(data.forensicReport);
       }
     } catch (error) {
       console.error('Search failed:', error);
-      alert('Search failed. Please try again.');
     } finally {
       setIsLoading(false);
       setSearchProgress(100);
@@ -437,7 +419,13 @@ export default function HomePage() {
         </div>
 
         {/* Results */}
-        <ResultsDisplay results={results} isLoading={isLoading} query={searchQuery} metadata={extractedMetadata} />
+        <ResultsDisplay
+          results={results}
+          isLoading={isLoading}
+          query={searchMode === 'text' ? searchQuery : 'Visual Inquiry'}
+          forensicReport={forensicReport}
+          verificationLevel={verificationLevel}
+        />
 
         {/* Legal & Ethical Disclaimer */}
         <footer className="mt-20 pt-8 border-t border-white/5 text-center px-4">

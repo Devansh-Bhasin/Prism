@@ -14,44 +14,35 @@ interface SearchMetadata {
 }
 
 /**
- * OSINT Aggregator: Uses search engine 'site:' dorks to find real profiles
+ * OSINT Aggregator: Uses SerpApi (Google) to find real profiles via 'site:' dorks
  */
 async function searchDiscovery(query: string, platformName: string, platformBaseUrl: string): Promise<string[]> {
     const domain = new URL(platformBaseUrl).hostname;
+    const apiKey = process.env.SERPAPI_API_KEY;
+
+    if (!apiKey) {
+        console.warn('SERPAPI_API_KEY not found. Falling back to local guessing.');
+        return [];
+    }
+
     const searchQuery = `site:${domain} "${query}"`;
-    const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
+    const searchUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(searchQuery)}&api_key=${apiKey}&num=3`;
 
     try {
-        const response = await fetch(searchUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html',
-            },
-            signal: AbortSignal.timeout(8000),
-        });
+        const response = await fetch(searchUrl);
+        const data = await response.json();
 
-        if (!response.ok) return [];
+        if (data.error) {
+            console.error('SerpApi Error:', data.error);
+            return [];
+        }
 
-        const html = await response.text();
-        const $ = cheerio.load(html);
-        const links: string[] = [];
+        const links = data.organic_results?.map((res: any) => res.link) || [];
+        console.log(`SerpApi: Found ${links.length} results for ${platformName}`);
 
-        // DuckDuckGo HTML results are usually in .result__url or a.result__a
-        $('a.result__a').each((_, el) => {
-            const href = $(el).attr('href');
-            if (href && href.includes(domain) && !href.includes('duckduckgo.com')) {
-                // Extract actual URL (DuckDuckGo often wraps links)
-                const match = href.match(/uddg=([^&]+)/);
-                const actualUrl = match ? decodeURIComponent(match[1]) : href;
-                if (!actualUrl.includes('/search') && !actualUrl.includes('/tags')) {
-                    links.push(actualUrl);
-                }
-            }
-        });
-
-        return [...new Set(links)].slice(0, 2); // Return top 2 unique profile matches
+        return links.filter((link: string) => link.includes(domain)).slice(0, 2);
     } catch (e) {
-        console.error(`Discovery failed for ${platformName}:`, e);
+        console.error(`SerpApi Discovery failed for ${platformName}:`, e);
         return [];
     }
 }
@@ -209,28 +200,28 @@ export async function POST(request: NextRequest) {
         const mainVariation = variations[0];
 
         // --- PHASE 1: Discovery (The Aggregator) ---
-        // Instead of guessing, we search the platform for the user's name
-        const discoveryChecks = corePlatforms.map(async (p) => {
-            const foundUrls = await searchDiscovery(query, p.name, p.url);
-            return { platform: p, urls: foundUrls };
-        });
-
-        const discoveryResults = await discoveryChecks; // This is a list of {platform, urls[]}
+        console.log(`Starting Aggregator Discovery for query: "${query}"`);
+        const discoveryResults = await Promise.all(
+            corePlatforms.map(async (p) => {
+                const foundUrls = await searchDiscovery(query, p.name, p.url);
+                return { platform: p, urls: foundUrls };
+            })
+        );
 
         // --- PHASE 2: Deep Scrape ---
         // Now we scrape the ACTUAL URLs we found
         const scrapeTasks: Promise<SearchResult>[] = [];
 
-        for (const dr of await Promise.all(discoveryResults)) {
+        for (const dr of discoveryResults) {
             if (dr.urls.length > 0) {
-                // If we found real URLs, scrape them
+                console.log(`Discovery: Using ${dr.urls.length} found URLs for ${dr.platform.name}`);
                 dr.urls.forEach(url => {
-                    // Extract username from URL for the data object
-                    const username = url.split('/').filter(Boolean).pop() || query;
+                    const parts = url.split('/').filter(Boolean);
+                    const username = parts[parts.length - 1] || query;
                     scrapeTasks.push(scrapeProfile(dr.platform, username, metadata));
                 });
             } else {
-                // Fallback to guessing if discovery returned nothing (unlikely for big names)
+                console.log(`Discovery: No URLs found for ${dr.platform.name}, falling back to Variation Guessing`);
                 scrapeTasks.push(scrapeProfile(dr.platform, mainVariation, metadata));
             }
         }

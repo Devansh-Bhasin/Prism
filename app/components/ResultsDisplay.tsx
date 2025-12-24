@@ -71,7 +71,7 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                 <div className="relative z-10">
                     <Loader2 className="w-16 h-16 mx-auto mb-4 text-neon-cyan animate-spin" />
                     <h3 className="text-2xl font-bold mb-2 tracking-tight uppercase">Executing Multi-Vector Analysis...</h3>
-                    <p className="text-gray-400 font-mono text-xs">Parsing JSON-LD, EXIF, and Discovery Dorks</p>
+                    <p className="text-gray-400 font-mono text-xs uppercase tracking-widest">v3.0 Probing & Forensic Correlation Active</p>
                 </div>
             </motion.div>
         );
@@ -86,8 +86,8 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
             >
                 <Fingerprint className="w-12 h-12 text-red-500 mx-auto mb-4 opacity-50" />
                 <h3 className="text-2xl font-bold mb-2 text-gray-300 uppercase">Search Inconclusive</h3>
-                <p className="text-gray-500 max-w-sm mx-auto text-sm">
-                    No verified identity nodes were recovered for "{query}" across targeted platform indexes.
+                <p className="text-gray-500 max-w-sm mx-auto text-sm italic">
+                    No verified identity nodes were recovered for "{query}" across targeted platform probes.
                 </p>
             </motion.div>
         );
@@ -112,23 +112,23 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                             <div className="flex items-center gap-2">
                                 <h2 className="text-2xl font-bold tracking-tight uppercase">Intelligence Report</h2>
                                 {verificationLevel && (
-                                    <span className={`text-[10px] px-2 py-0.5 rounded font-black border uppercase ${statusColors[verificationLevel]}`}>
-                                        {verificationLevel}
+                                    <span className={`text-[10px] px-2 py-0.5 rounded font-black border uppercase tracking-widest ${statusColors[verificationLevel]}`}>
+                                        {verificationLevel === 'Contextual' ? 'Contextual Findings' : verificationLevel}
                                     </span>
                                 )}
                             </div>
                             <p className="text-gray-500 font-mono text-[10px] uppercase tracking-widest mt-1">
-                                Generated for: {query || 'Visual Inquiry'} | Nodes: {allResultsRaw.length}
+                                Generated for: {query || 'Visual Inquiry'} | Probed Nodes: {allResultsRaw.length}
                             </p>
                         </div>
                     </div>
 
                     <div className="flex gap-2">
                         <button onClick={handleExportCSV} className="btn-osint text-xs px-3 py-1.5 flex items-center gap-2">
-                            <Download className="w-3 h-3" /> CSV
+                            <Download className="w-3 h-3" /> CSV REPORT
                         </button>
                         <button onClick={handleExportJSON} className="btn-osint text-xs px-3 py-1.5 flex items-center gap-2">
-                            <FileJson className="w-3 h-3" /> JSON
+                            <FileJson className="w-3 h-3" /> JSON DATA
                         </button>
                     </div>
                 </div>
@@ -139,7 +139,7 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass rounded-2xl p-6 border border-neon-purple/30 bg-neon-purple/5">
                     <div className="flex items-center gap-2 mb-4">
                         <Camera className="w-4 h-4 text-neon-purple" />
-                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Image Forensic Analysis</h3>
+                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Image Forensic Evidence</h3>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                         {forensicReport.device && (
@@ -156,7 +156,7 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                         )}
                         {forensicReport.location && (
                             <div>
-                                <p className="text-[10px] text-gray-500 uppercase font-mono mb-1">GPS Evidence</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-mono mb-1">GPS Anchor</p>
                                 <p className="text-xs text-neon-cyan font-bold flex items-center gap-1">
                                     <MapPin className="w-3 h-3" /> {forensicReport.location.lat.toFixed(4)}, {forensicReport.location.lon.toFixed(4)}
                                 </p>
@@ -164,7 +164,7 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                         )}
                         {forensicReport.dimensions && (
                             <div>
-                                <p className="text-[10px] text-gray-500 uppercase font-mono mb-1">Resolution Data</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-mono mb-1">Resolution Specs</p>
                                 <p className="text-xs text-gray-200 font-bold">{forensicReport.dimensions.width} x {forensicReport.dimensions.height}px</p>
                             </div>
                         )}
@@ -178,6 +178,7 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                     <div className="flex items-center gap-2 border-b border-green-500/20 pb-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
                         <h3 className="text-sm font-bold uppercase tracking-widest text-green-500">Verified Identity Nodes</h3>
+                        <span className="text-[10px] text-gray-500 ml-auto font-mono uppercase">Strong Correlation Anchor</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {tiered.verified.map((r, i) => <ProfileCard key={i} result={r} tier="verified" />)}
@@ -191,8 +192,9 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                     <div className="flex items-center gap-2 border-b border-white/10 pb-2">
                         <Search className="w-4 h-4 text-neon-cyan" />
                         <h3 className="text-sm font-bold uppercase tracking-widest text-gray-300">
-                            {tiered ? 'Identity Correlation Matches' : 'Search Results'}
+                            {tiered ? 'Identity Correlation Matches' : 'Discovery Results'}
                         </h3>
+                        <span className="text-[10px] text-gray-500 ml-auto font-mono uppercase">Contextual Alignment Detected</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {(tiered ? tiered.probable || [] : flat || []).map((r, i) => <ProfileCard key={i} result={r} tier="probable" />)}
@@ -205,7 +207,8 @@ export default function ResultsDisplay({ results, isLoading, query, forensicRepo
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 border-b border-white/10 pb-2">
                         <Sparkles className="w-4 h-4 text-neon-purple" />
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400">Visual Similarity Sources</h3>
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400">Contextual Visual Evidence</h3>
+                        <span className="text-[10px] text-red-500/70 ml-auto font-mono uppercase italic">No Identity Match Claimed</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-70 hover:opacity-100 transition-opacity">
                         {tiered.visual.map((r, i) => <ProfileCard key={i} result={r} tier="visual" />)}
@@ -229,40 +232,47 @@ function ProfileCard({ result, tier }: { result: SearchResult, tier: 'verified' 
             target="_blank"
             rel="noopener noreferrer"
             whileHover={{ y: -4, scale: 1.02 }}
-            className={`glass rounded-xl p-4 flex flex-col gap-3 border ${tierConfig[tier]} group transition-all`}
+            className={`glass rounded-xl p-4 flex flex-col gap-3 border ${tierConfig[tier]} group transition-all relative overflow-hidden`}
         >
-            <div className="flex items-start gap-3">
-                {result.profileImage && (
+            <div className="flex items-start gap-3 relative z-10">
+                {result.profileImage ? (
                     <div className="w-12 h-12 rounded-full overflow-hidden border border-white/10 shrink-0">
                         <img src={result.profileImage} alt="" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                    </div>
+                ) : (
+                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shrink-0">
+                        <Fingerprint className="w-6 h-6 text-gray-600" />
                     </div>
                 )}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                        <h4 className="font-bold text-sm truncate uppercase tracking-tight text-white group-hover:text-neon-cyan">
+                        <h4 className="font-bold text-xs truncate uppercase tracking-tight text-white group-hover:text-neon-cyan">
                             {result.platform}
                         </h4>
                         <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-neon-cyan" />
                     </div>
                     <p className="text-[10px] font-mono text-gray-500 truncate mb-1">@{result.username}</p>
-                    <div className="flex items-center gap-1.5">
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-black border uppercase ${result.confidence > 85 ? 'text-green-400 border-green-500/20' : 'text-gray-400 border-white/10'
-                            }`}>
-                            {result.confidence}% Match
-                        </span>
-                    </div>
+
+                    {tier !== 'visual' && (
+                        <div className="flex items-center gap-1.5">
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black border uppercase ${result.confidence > 85 ? 'text-green-400 border-green-500/20 bg-green-500/5' : 'text-neon-cyan border-neon-cyan/20 bg-neon-cyan/5'
+                                }`}>
+                                {result.confidence}% Confidence
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {result.scrapedBio && (
-                <p className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed italic">
+                <p className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed italic relative z-10">
                     &quot;{result.scrapedBio}&quot;
                 </p>
             )}
 
-            <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-white/5">
+            <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-white/5 relative z-10">
                 {result.matchReasons.slice(0, 3).map((reason, i) => (
-                    <span key={i} className="text-[7px] font-bold uppercase tracking-tighter bg-white/5 px-1.5 py-0.5 rounded text-gray-500">
+                    <span key={i} className="text-[7px] font-bold uppercase tracking-tighter bg-white/5 px-1.5 py-0.5 rounded text-gray-500 border border-white/5">
                         {reason}
                     </span>
                 ))}

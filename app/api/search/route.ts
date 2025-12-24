@@ -5,97 +5,91 @@ import { Platform, SearchResult, platforms, generateVariations } from '@/app/lib
 export const runtime = 'nodejs';
 
 interface SearchMetadata {
-    minAge?: string;
-    maxAge?: string;
-    gender?: string;
     location?: string;
     query: string;
 }
 
-interface ScoringEvidence {
-    handleMatch: boolean;
-    locationMatch: boolean;
-    identityLinkFound: boolean;
-    bioKeywordMatch: boolean;
-    structuredDataFound: boolean;
-}
-
 /**
- * Enhanced Discovery: Uses advanced Google Dorks for higher precision
+ * Platform-First Probing: Verifies account existence before scraping
+ * Minimizes API overhead and false positives
  */
-async function searchDiscovery(query: string, platform: Platform): Promise<string[]> {
-    const domain = new URL(platform.url).hostname;
-    const apiKey = process.env.SERPAPI_API_KEY;
-
-    if (!apiKey) return [];
-
-    // Advanced Dorking: Target profiles, exclude search/login noise
-    const searchQuery = `site:${domain} intitle:"${query}" -inurl:search -inurl:login`;
-    const searchUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(searchQuery)}&api_key=${apiKey}&num=5`;
-
+async function probeAccount(url: string): Promise<{ exists: boolean; status: number }> {
     try {
-        const response = await fetch(searchUrl);
-        const data = await response.json();
+        const response = await fetch(url, {
+            method: 'HEAD',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+            signal: AbortSignal.timeout(5000),
+        });
 
-        if (data.error || !data.organic_results) return [];
-
-        return data.organic_results
-            .map((res: any) => res.link)
-            .filter((link: string) => link.includes(domain))
-            .slice(0, 3);
-    } catch (e) {
-        return [];
+        // Solid discovery: Redirects or OK usually mean a profile node exists
+        return {
+            exists: response.status >= 200 && response.status < 400,
+            status: response.status
+        };
+    } catch {
+        return { exists: false, status: 0 };
     }
 }
 
 /**
- * Weighted Scoring Model
+ * v3.0 Evidence Accumulation Scoring
+ * Missing data is treated as NEUTRAL (0 weight impact)
  */
-function calculateWeightedScore(username: string, query: string, bio: string, title: string, metadata: SearchMetadata, hasJsonLd: boolean): { score: number, reasons: string[] } {
-    let score = 0;
+function calculateForensicScore(username: string, query: string, bio: string, title: string, metadata: SearchMetadata): { score: number, reasons: string[] } {
+    let rawScore = 0;
+    let totalWeight = 0;
     const reasons: string[] = [];
+
     const lowBio = bio.toLowerCase();
     const lowTitle = title.toLowerCase();
     const lowQuery = query.toLowerCase();
     const lowUser = username.toLowerCase();
 
-    // 1. Handle Match (40%)
-    if (lowUser.includes(lowQuery) || lowQuery.includes(lowUser)) {
-        score += 40;
-        reasons.push('Identity Handle Correspondence');
+    // 1. Handle Correlation (Weight: 40)
+    totalWeight += 40;
+    if (lowUser === lowQuery) {
+        rawScore += 40;
+        reasons.push('Identity Anchor: Exact Handle Match');
+    } else if (lowUser.includes(lowQuery) || lowQuery.includes(lowUser)) {
+        rawScore += 30;
+        reasons.push('Identity Correlation: Fuzzy Handle Match');
     }
 
-    // 2. Location Match (25%)
+    // 2. Geographic Context (Weight: 25)
     if (metadata.location) {
+        totalWeight += 25;
         const loc = metadata.location.toLowerCase();
         if (lowBio.includes(loc) || lowTitle.includes(loc)) {
-            score += 25;
-            reasons.push('Geographic Entity Match');
+            rawScore += 25;
+            reasons.push('Contextual Alignment: Geographic Marker Found');
         }
     }
 
-    // 3. Identity Linking (20%) - Detect other social links in bio
-    const socialPatterns = ['twitter.com', 't.co', 'facebook.com', 'linkedin.com', 'github.com', 'youtube.com'];
+    // 3. Identity Linking (Weight: 20)
+    const socialPatterns = ['twitter.com', 't.co', 'facebook.com', 'linkedin.com', 'github.com', 'instagram.com'];
     if (socialPatterns.some(p => lowBio.includes(p))) {
-        score += 20;
-        reasons.push('Cross-Platform Identity Links Detected');
+        totalWeight += 20;
+        rawScore += 20;
+        reasons.push('Forensic Evidence: Cross-Platform identity Links');
     }
 
-    // 4. Bio/Keyword Affinity (15%)
-    const professionalKeywords = ['engineer', 'developer', 'creator', 'founder', 'student', 'artist', 'writer'];
-    if (professionalKeywords.some(k => lowBio.includes(k))) {
-        score += 15;
-        reasons.push('Professional Context Match');
+    // 4. Bio Keyword Affinity (Weight: 15)
+    const profKeys = ['engineer', 'developer', 'creator', 'founder', 'artist', 'writer', 'student'];
+    if (profKeys.some(k => lowBio.includes(k))) {
+        totalWeight += 15;
+        rawScore += 15;
+        reasons.push('Behavioral Consistency: Bio Keywords');
     }
 
-    // Bonus for Structured Data
-    if (hasJsonLd) score += 5;
-
-    return { score: Math.min(score, 100), reasons };
+    // Normalization: Calculate percentage of available evidence found
+    const finalScore = totalWeight > 0 ? (rawScore / totalWeight) * 100 : 0;
+    return { score: Math.round(finalScore), reasons };
 }
 
 /**
- * Professional Scraper: JSON-LD + OG + Meta
+ * OSINT Scraper for v3.0
  */
 async function scrapeProfile(platform: Platform, username: string, metadata: SearchMetadata, urlOverride?: string): Promise<SearchResult> {
     const url = urlOverride || platform.url.replace('{}', username);
@@ -104,45 +98,28 @@ async function scrapeProfile(platform: Platform, username: string, metadata: Sea
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             },
             signal: AbortSignal.timeout(8000),
         });
 
-        if (response.status === 404) return { platform: platform.name, url, found: false, username, category: platform.category, confidence: 0, scrapedBio: '', matchReasons: [] };
-
-        // Handle private/restricted (still found)
-        if (response.status === 403 || response.status === 401) {
-            return { platform: platform.name, url, found: true, username, category: platform.category, confidence: 50, scrapedBio: '[Private/Restricted Profile]', matchReasons: ['Security Restricted (Verified Exist)'], profileImage: '' };
+        if (response.status === 404) {
+            return { platform: platform.name, url, found: false, username, category: platform.category, confidence: 0, scrapedBio: '', matchReasons: [] };
         }
 
         const html = await response.text();
         const $ = cheerio.load(html);
 
-        // 1. JSON-LD Extraction (Priority)
-        let structuredBio = '';
-        let hasJsonLd = false;
-        $('script[type="application/ld+json"]').each((_, el) => {
-            try {
-                const data = JSON.parse($(el).html() || '{}');
-                structuredBio = data.description || data.about || structuredBio;
-                if (structuredBio) hasJsonLd = true;
-            } catch (e) { }
-        });
-
-        // 2. Fallbacks
-        const pageTitle = $('title').text();
-        const ogBio = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
-        const finalBio = structuredBio || ogBio;
-        const profileImage = $('meta[property="og:image"]').attr('content') || '';
-
-        // 3. Status/Soft-404 verification
-        const noIndex = $('meta[name="robots"]').attr('content')?.includes('noindex');
-        if (noIndex && !finalBio) {
+        // Soft-404 detection
+        const title = $('title').text().toLowerCase();
+        if (title.includes('page not found') || title.includes('content unavailable')) {
             return { platform: platform.name, url, found: false, username, category: platform.category, confidence: 0, scrapedBio: '', matchReasons: [] };
         }
 
-        const { score, reasons } = calculateWeightedScore(username, metadata.query, finalBio, pageTitle, metadata, hasJsonLd);
+        const ogBio = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+        const profileImage = $('meta[property="og:image"]').attr('content') || '';
+
+        const { score, reasons } = calculateForensicScore(username, metadata.query, ogBio, title, metadata);
 
         return {
             platform: platform.name,
@@ -151,8 +128,8 @@ async function scrapeProfile(platform: Platform, username: string, metadata: Sea
             username,
             category: platform.category,
             confidence: score,
-            scrapedBio: finalBio.slice(0, 250),
             matchReasons: reasons,
+            scrapedBio: ogBio.slice(0, 250),
             profileImage
         };
     } catch (e) {
@@ -162,9 +139,8 @@ async function scrapeProfile(platform: Platform, username: string, metadata: Sea
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { query, location, platforms: requestedPlatforms } = body;
-        const metadata: SearchMetadata = { ...body, query };
+        const { query, location, platforms: requestedPlatforms } = await request.json();
+        const metadata: SearchMetadata = { query, location };
 
         if (!query) return NextResponse.json({ error: 'Identity query required' }, { status: 400 });
 
@@ -172,36 +148,66 @@ export async function POST(request: NextRequest) {
             ? platforms.filter(p => requestedPlatforms.includes(p.name))
             : platforms;
 
-        // Run Discovery and Direct Guessing in Parallel
-        const results = await Promise.all(targetPlatforms.map(async (p) => {
-            // Priority 1: Discovery via Dorks
-            const discoveredUrls = await searchDiscovery(query, p);
-            if (discoveredUrls.length > 0) {
-                const discoveryScrapes = await Promise.all(
-                    discoveredUrls.map(url => scrapeProfile(p, query, metadata, url))
-                );
-                return discoveryScrapes;
+        const variations = generateVariations(query);
+        const results: SearchResult[] = [];
+
+        // Parallel Probing & Scraping across platforms
+        await Promise.all(targetPlatforms.map(async (platform) => {
+            const platformResults: SearchResult[] = [];
+
+            // Probing Phase: Check top 3 variations directly
+            for (const username of variations.slice(0, 3)) {
+                const url = platform.url.replace('{}', username);
+                const probe = await probeAccount(url);
+                if (probe.exists) {
+                    const profile = await scrapeProfile(platform, username, metadata);
+                    if (profile.found) platformResults.push(profile);
+                }
             }
 
-            // Priority 2: Direct Handle Matching
-            const variations = generateVariations(query);
-            return [await scrapeProfile(p, variations[0], metadata)];
+            // Fallback Discovery Phase: If no probe hits, try Google Dorking
+            if (platformResults.length === 0) {
+                const apiKey = process.env.SERPAPI_API_KEY;
+                if (apiKey) {
+                    const domain = new URL(platform.url).hostname;
+                    const searchQuery = `site:${domain} intitle:"${query}" -inurl:search -inurl:login`;
+                    const searchUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(searchQuery)}&api_key=${apiKey}&num=3`;
+
+                    try {
+                        const response = await fetch(searchUrl);
+                        const data = await response.json();
+                        if (data.organic_results) {
+                            for (const res of data.organic_results.slice(0, 2)) {
+                                const profile = await scrapeProfile(platform, query, metadata, res.link);
+                                if (profile.found) platformResults.push(profile);
+                            }
+                        }
+                    } catch { }
+                }
+            }
+
+            results.push(...platformResults);
         }));
 
-        const flatResults = results.flat().filter(r => r.found && r.confidence >= 30);
-
-        // Tiered Deduplication (Prefer higher confidence for same URL)
-        const unique = Array.from(
-            new Map(flatResults.sort((a, b) => b.confidence - a.confidence).map(r => [r.url, r])).values()
+        // v3.0 Deduplication: Use URL-based Map and keep highest confidence
+        const uniqueResults = Array.from(
+            results.reduce((acc, current) => {
+                const existing = acc.get(current.url);
+                if (!existing || current.confidence > existing.confidence) {
+                    acc.set(current.url, current);
+                }
+                return acc;
+            }, new Map<string, SearchResult>()).values()
         );
 
         return NextResponse.json({
             status: 'success',
-            results: unique.sort((a, b) => b.confidence - a.confidence),
+            results: uniqueResults.sort((a, b) => b.confidence - a.confidence),
             query: metadata
         });
 
     } catch (error) {
-        return NextResponse.json({ error: 'OSINT Engine Failure' }, { status: 500 });
+        console.error('Search failure:', error);
+        return NextResponse.json({ error: 'Forensic Engine Analysis Interrupted' }, { status: 500 });
     }
 }

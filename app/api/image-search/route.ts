@@ -80,16 +80,16 @@ export async function POST(request: NextRequest) {
                         const sourceUrl = new URL(match.link);
                         const platformName = sourceUrl.hostname.replace('www.', '').split('.')[0];
 
-                        // Categorize Visual Matches
+                        // v3.0: Visual results are NOT identity matches
                         visualMatches.push({
                             platform: platformName.charAt(0).toUpperCase() + platformName.slice(1),
                             url: match.link,
                             found: true,
-                            username: match.source || 'Visual Source Found',
-                            category: 'visual-match',
-                            confidence: 85, // Direct visual similarity is high confidence in perception
-                            matchReasons: ['Visual Signature Alignment', 'Google Lens Verified Source'],
-                            scrapedBio: match.title || 'Visually similar media detected in the wild.',
+                            username: 'Visual Evidence Node',
+                            category: 'visual-similarity',
+                            confidence: 0, // Prohibit confidence for visual-only
+                            matchReasons: ['Perceptual Similarity Found', 'Supporting Contextual Node'],
+                            scrapedBio: match.title || 'Media sharing characteristics with inquiry source.',
                             profileImage: match.thumbnail
                         });
                     });
@@ -99,19 +99,19 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // --- PHASE 3: Correlation & Finalization ---
-        // If EXIF GPS matches visual source metadata (if any were available to cross-reference)
-        // Here we could perform deeper correlation if we had a persistent identity database
+        // --- PHASE 3: Correlation & Defensibility ---
+        // OSINT Rule: If Forensic GPS matches a profile's location context EXPLICITLY, upgrade to Verified.
+        // For now, we remain conservative.
 
         return NextResponse.json({
             status: 'success',
             forensicReport: forensicData,
             results: {
-                verified: verifiedMatches, // Strictly verified identity (Handle match + EXIF match)
-                visual: visualMatches.slice(0, 20) // Ranked visual similarities
+                verified: verifiedMatches,
+                visual: visualMatches.slice(0, 15)
             },
-            verificationLevel: verifiedMatches.length > 0 ? 'Verified' : (visualMatches.length > 0 ? 'Probable' : 'Inconclusive'),
-            message: apiKey ? 'Visual Intelligence analysis complete' : 'Analysis limited: Forensic extraction only'
+            verificationLevel: verifiedMatches.length > 0 ? 'Verified' : (visualMatches.length > 0 ? 'Contextual' : 'Inconclusive'),
+            message: 'Forensic-grade Intelligence Report Generated'
         });
 
     } catch (error) {

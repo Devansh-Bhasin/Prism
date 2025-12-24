@@ -64,35 +64,40 @@ export const platforms: Platform[] = [
 
 /**
  * Generate intelligent username variations based on input
+ * Following OSINT v3.0 Tokenization Logic
  */
 export function generateVariations(input: string): string[] {
     const variations = new Set<string>();
     const cleaned = input.toLowerCase().trim();
     const words = cleaned.split(/\s+/);
+    const joined = words.join('');
 
-    // 1. Original input (if no spaces) or joined words
-    variations.add(cleaned.replace(/\s+/g, ''));
+    // 1. Direct Joins
+    variations.add(joined);
 
+    // 2. Standard Separators
+    const separators = ['.', '_', '-'];
     if (words.length > 1) {
-        // 2. Dots and Underscores
-        variations.add(words.join('.'));
-        variations.add(words.join('_'));
-        variations.add(words.join('-'));
+        separators.forEach(sep => variations.add(words.join(sep)));
+    }
 
-        // 3. Initials
-        const firstInitial = words[0][0];
-        const lastInitial = words[words.length - 1][0];
-        if (words.length >= 2) {
-            variations.add(`${firstInitial}${words[words.length - 1]}`);
-            variations.add(`${words[0]}${lastInitial}`);
+    // 3. Professional & Identity Tokens
+    const prefixes = ['the', 'real', 'official', 'iam'];
+    const suffixes = ['official', 'real', 'dev', 'hq', 'admin', 'profile'];
+
+    // Add variations with top prefixes/suffixes
+    prefixes.forEach(p => variations.add(`${p}${joined}`));
+    suffixes.forEach(s => variations.add(`${joined}${s}`));
+
+    // 4. Case-aware tokenization (for already stylized inputs)
+    if (input.includes('_') || input.includes('.')) {
+        const parts = input.toLowerCase().split(/[._-]/);
+        if (parts.length > 1) {
+            variations.add(parts.join(''));
+            separators.forEach(sep => variations.add(parts.join(sep)));
         }
     }
 
-    // 4. Common Suffixes (limit to top 2 to keep search fast)
-    const base = words.join('');
-    const commonSuffixes = ['official', 'real', 'dev'];
-    commonSuffixes.forEach(s => variations.add(`${base}${s}`));
-
-    // Limit to 8 variations to avoid overwhelming the scraper
-    return Array.from(variations).slice(0, 8);
+    // Limit to 12 strongest variations for v3.0 Probing
+    return Array.from(variations).slice(0, 12);
 }
